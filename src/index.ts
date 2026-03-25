@@ -15,12 +15,6 @@ export { ContextMapper } from "./ContextMapper";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Auth check
-    const authToken = request.headers.get("Authorization")?.replace("Bearer ", "");
-    if (env.AUTH_TOKEN && authToken !== env.AUTH_TOKEN) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -32,6 +26,12 @@ export default {
         overwatchers: ["PatternSensor", "ContextMapper"],
         purpose: "Learning to sense a human the way a dog once did.",
       });
+    }
+
+    // Auth check — everything below requires token
+    const authToken = request.headers.get("Authorization")?.replace("Bearer ", "");
+    if (env.AUTH_TOKEN && authToken !== env.AUTH_TOKEN) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
     // Route to PatternSensor
