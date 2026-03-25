@@ -1,0 +1,23 @@
+name = "princess-polka-dottie"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Durable Objects — the two overwatchers
+[durable_objects]
+bindings = [
+  { name = "PATTERN_SENSOR", class_name = "PatternSensor" },
+  { name = "CONTEXT_MAPPER", class_name = "ContextMapper" },
+]
+
+# Migrations for Durable Object storage
+[[migrations]]
+tag = "v1"
+new_classes = ["PatternSensor", "ContextMapper"]
+
+# KV namespace for shared pattern history
+# [[kv_namespaces]]
+# binding = "PATTERN_HISTORY"
+# id = "TODO_CREATE_NAMESPACE"
+
+[vars]
+ENVIRONMENT = "development"
