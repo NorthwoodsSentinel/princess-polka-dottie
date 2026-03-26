@@ -13,7 +13,7 @@
  * the way Dottie knew before words could say.
  */
 
-import type { ConversationExchange, PatternAssessment, BodySignal } from "./types";
+import type { ConversationExchange, PatternAssessment, BodySignal, BrainSignal } from "./types";
 
 const SOMATIC_VOCABULARY = [
   "flutter", "falling", "swimming", "membrane", "expansion", "tingling",
@@ -106,16 +106,45 @@ export class PatternSensor implements DurableObject {
     return ACCELERATION_MARKERS.some((marker) => combined.includes(marker));
   }
 
-  private inferRegulationState(body: BodySignal | null | undefined): PatternAssessment["regulation_state"] {
-    if (!body || body.hr === null) return "unknown";
+  private inferRegulationState(
+    body: BodySignal | null | undefined,
+    brain: BrainSignal | null | undefined,
+  ): PatternAssessment["regulation_state"] {
+    if (!body && !brain) return "unknown";
 
-    // Simple heuristic v1 — will be refined with accumulated data
-    const hrHigh = body.hr > 90;
-    const hrvLow = body.hrv_rmssd !== null && body.hrv_rmssd < 25;
-    const breathFast = body.breath_rate !== null && body.breath_rate > 18;
+    let sympatheticSignals = 0;
+    let ventralSignals = 0;
 
-    if (hrHigh || hrvLow || breathFast) return "sympathetic";
-    return "ventral";
+    // Body signals
+    if (body && body.hr !== null) {
+      if (body.hr > 90) sympatheticSignals++;
+      else ventralSignals++;
+      if (body.hrv_rmssd !== null && body.hrv_rmssd < 25) sympatheticSignals++;
+      if (body.hrv_rmssd !== null && body.hrv_rmssd >= 40) ventralSignals++;
+      if (body.breath_rate !== null && body.breath_rate > 18) sympatheticSignals++;
+      if (body.breath_rate !== null && body.breath_rate <= 12) ventralSignals++;
+    }
+
+    // Brain signals — alpha dominance = relaxed, beta dominance = activated
+    if (brain) {
+      if (brain.alpha !== null && brain.beta !== null && brain.alpha > brain.beta) {
+        ventralSignals++;  // Alpha dominant = relaxed
+      }
+      if (brain.beta !== null && brain.alpha !== null && brain.beta > brain.alpha * 2) {
+        sympatheticSignals++;  // Beta strongly dominant = activated/anxious
+      }
+      if (brain.theta !== null && brain.alpha !== null && brain.theta > brain.alpha) {
+        ventralSignals++;  // Theta dominant = deep meditation/flow
+      }
+      if (brain.gamma !== null && brain.gamma > 0) {
+        // Gamma present = peak cognition, not necessarily sympathetic
+        // Track but don't score either way in v1
+      }
+    }
+
+    if (sympatheticSignals > ventralSignals) return "sympathetic";
+    if (ventralSignals > 0) return "ventral";
+    return "unknown";
   }
 
   private assess(bodySignal?: BodySignal | null): PatternAssessment {
@@ -134,7 +163,8 @@ export class PatternSensor implements DurableObject {
 
     const somaticLanguage = this.detectSomaticLanguage(allMessages.slice(-5));
     const accelerating = this.detectAcceleration(allMessages.slice(-3));
-    const regulationState = this.inferRegulationState(latestBody);
+    const latestBrain = this.recentExchanges[this.recentExchanges.length - 1]?.brain_signal ?? null;
+    const regulationState = this.inferRegulationState(latestBody, latestBrain);
 
     // Determine trajectory
     let trajectory: PatternAssessment["trajectory_signal"] = "stable";
