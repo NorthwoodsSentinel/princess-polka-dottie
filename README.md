@@ -91,3 +91,11 @@ PrincessPolkaDottie.
 
 *"Dottie dying was the match that lit the powder keg."*
 *— Rob Chuvala, MenLiving Foundational Training, January 2026*
+
+---
+
+## Northwoods Sentinel Labs
+
+Part of the [Northwoods Sentinel Labs](https://northwoodssentinel.com) ecosystem — open-source tools for human-centered AI.
+
+[Blog](https://northwoodssentinel.com) · [Substack](https://substack.com/@chewvala) · [GitHub](https://github.com/NorthwoodsSentinel)
