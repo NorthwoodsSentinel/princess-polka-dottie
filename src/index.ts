@@ -6,12 +6,33 @@
  * - ContextMapper: pattern assessment → injection recommendation
  *
  * All endpoints require AUTH_TOKEN header match.
+ * "I believe that one defines oneself by reinvention." — Henry Rollins
  */
 
 import type { Env } from "./types";
 
 export { PatternSensor } from "./PatternSensor";
 export { ContextMapper } from "./ContextMapper";
+
+const SECURITY_HEADERS: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+function secureJson(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS },
+  });
+}
+
+function secureText(body: string, status = 200): Response {
+  return new Response(body, { status, headers: SECURITY_HEADERS });
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -20,7 +41,7 @@ export default {
 
     // Health check — no auth needed
     if (path === "/" || path === "/health") {
-      return Response.json({
+      return secureJson({
         name: "PrincessPolkaDottie",
         status: "alive",
         overwatchers: ["PatternSensor", "ContextMapper"],
@@ -28,10 +49,10 @@ export default {
       });
     }
 
-    // Auth check — everything below requires token
+    // Auth check — deny-by-default. If AUTH_TOKEN is not set, nothing gets through.
     const authToken = request.headers.get("Authorization")?.replace("Bearer ", "");
-    if (env.AUTH_TOKEN && authToken !== env.AUTH_TOKEN) {
-      return new Response("Unauthorized", { status: 401 });
+    if (!env.AUTH_TOKEN || authToken !== env.AUTH_TOKEN) {
+      return secureText("Unauthorized", 401);
     }
 
     // Route to PatternSensor
@@ -52,7 +73,23 @@ export default {
 
     // Combined endpoint — full pipeline
     if (path === "/sense" && request.method === "POST") {
-      const exchange = await request.json();
+      let exchange: any;
+      try {
+        exchange = await request.json();
+      } catch {
+        return secureJson({ error: "Invalid JSON body" }, 400);
+      }
+
+      // Input validation — require at minimum a conversation array
+      if (!exchange || typeof exchange !== 'object') {
+        return secureJson({ error: "Request body must be a JSON object" }, 400);
+      }
+      if (exchange.conversation && !Array.isArray(exchange.conversation)) {
+        return secureJson({ error: "conversation must be an array" }, 400);
+      }
+      if (exchange.conversation && exchange.conversation.length > 200) {
+        return secureJson({ error: "conversation exceeds maximum length of 200 exchanges" }, 400);
+      }
 
       // Step 1: Send to PatternSensor
       const patternId = env.PATTERN_SENSOR.idFromName("singleton");
@@ -78,9 +115,9 @@ export default {
       );
       const recommendation = await recommendationResp.json();
 
-      return Response.json(recommendation);
+      return secureJson(recommendation);
     }
 
-    return new Response("Not found", { status: 404 });
+    return secureText("Not found", 404);
   },
 };
