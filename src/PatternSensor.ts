@@ -28,21 +28,42 @@ const ACCELERATION_MARKERS = [
   "what if we", "shoot", "oh shit", "holy shit",
 ];
 
+const MAX_RECENT_EXCHANGES = 20;
+const MAX_SESSION_PATTERNS = 500;
+
 export class PatternSensor implements DurableObject {
   private state: DurableObjectState;
   private recentExchanges: ConversationExchange[] = [];
   private sessionPatterns: Map<string, number> = new Map();
+  private initialized = false;
 
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
   }
 
+  /** Load persisted state from storage before handling any request */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    const stored = await this.state.storage.get<ConversationExchange[]>("recentExchanges");
+    if (stored) this.recentExchanges = stored;
+    const storedPatterns = await this.state.storage.get<[string, number][]>("sessionPatterns");
+    if (storedPatterns) this.sessionPatterns = new Map(storedPatterns);
+    this.initialized = true;
+  }
+
+  /** Persist mutable state to storage */
+  private async persist(): Promise<void> {
+    await this.state.storage.put("recentExchanges", this.recentExchanges);
+    await this.state.storage.put("sessionPatterns", [...this.sessionPatterns.entries()]);
+  }
+
   async fetch(request: Request): Promise<Response> {
+    await this.ensureInitialized();
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/exchange") {
       const exchange: ConversationExchange = await request.json();
-      return this.processExchange(exchange);
+      return await this.processExchange(exchange);
     }
 
     if (request.method === "GET" && url.pathname === "/assessment") {
@@ -60,10 +81,10 @@ export class PatternSensor implements DurableObject {
     return new Response("Not found", { status: 404 });
   }
 
-  private processExchange(exchange: ConversationExchange): Response {
+  private async processExchange(exchange: ConversationExchange): Promise<Response> {
     // Keep a sliding window of recent exchanges
     this.recentExchanges.push(exchange);
-    if (this.recentExchanges.length > 20) {
+    if (this.recentExchanges.length > MAX_RECENT_EXCHANGES) {
       this.recentExchanges.shift();
     }
 
@@ -71,6 +92,7 @@ export class PatternSensor implements DurableObject {
     this.trackConceptRepetition(exchange.conversation_window);
 
     const assessment = this.assess(exchange.body_signal);
+    await this.persist();
     return Response.json(assessment);
   }
 
@@ -93,6 +115,13 @@ export class PatternSensor implements DurableObject {
       const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
       const current = this.sessionPatterns.get(trigram) || 0;
       this.sessionPatterns.set(trigram, current + 1);
+    }
+
+    // Prune sessionPatterns if it exceeds the max — remove lowest-scoring entries
+    if (this.sessionPatterns.size > MAX_SESSION_PATTERNS) {
+      const sorted = [...this.sessionPatterns.entries()].sort((a, b) => a[1] - b[1]);
+      const pruned = sorted.slice(sorted.length - MAX_SESSION_PATTERNS);
+      this.sessionPatterns = new Map(pruned);
     }
   }
 

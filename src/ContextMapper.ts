@@ -67,27 +67,47 @@ function determineDeliveryMode(
   return "stand_by";
 }
 
+const MAX_PREDICTIONS = 100;
+
 export class ContextMapper implements DurableObject {
   private state: DurableObjectState;
   private predictions: PredictionRecord[] = [];
   private mappingAccuracy: Map<string, { hits: number; misses: number }> = new Map();
+  private initialized = false;
 
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
   }
 
+  /** Load persisted state from storage before handling any request */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    const storedPredictions = await this.state.storage.get<PredictionRecord[]>("predictions");
+    if (storedPredictions) this.predictions = storedPredictions;
+    const storedAccuracy = await this.state.storage.get<[string, { hits: number; misses: number }][]>("mappingAccuracy");
+    if (storedAccuracy) this.mappingAccuracy = new Map(storedAccuracy);
+    this.initialized = true;
+  }
+
+  /** Persist mutable state to storage */
+  private async persist(): Promise<void> {
+    await this.state.storage.put("predictions", this.predictions);
+    await this.state.storage.put("mappingAccuracy", [...this.mappingAccuracy.entries()]);
+  }
+
   async fetch(request: Request): Promise<Response> {
+    await this.ensureInitialized();
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/recommend") {
       const assessment: PatternAssessment = await request.json();
-      return Response.json(this.recommend(assessment));
+      return Response.json(await this.recommend(assessment));
     }
 
     if (request.method === "POST" && url.pathname === "/score") {
       const scoring: { prediction_id: string; outcome: PredictionRecord["outcome"] } =
         await request.json();
-      return this.scorePrediction(scoring.prediction_id, scoring.outcome);
+      return await this.scorePrediction(scoring.prediction_id, scoring.outcome);
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
@@ -110,7 +130,7 @@ export class ContextMapper implements DurableObject {
     return new Response("Not found", { status: 404 });
   }
 
-  private recommend(assessment: PatternAssessment): InjectionRecommendation {
+  private async recommend(assessment: PatternAssessment): Promise<InjectionRecommendation> {
     const contextFiles: string[] = [];
 
     // Map somatic language to context files
@@ -159,11 +179,12 @@ export class ContextMapper implements DurableObject {
       ts: Date.now() / 1000,
     });
 
-    // Keep predictions bounded
-    if (this.predictions.length > 500) {
-      this.predictions = this.predictions.slice(-250);
+    // Keep predictions bounded — prune oldest when limit exceeded (F-036)
+    if (this.predictions.length > MAX_PREDICTIONS) {
+      this.predictions = this.predictions.slice(-MAX_PREDICTIONS);
     }
 
+    await this.persist();
     return recommendation;
   }
 
@@ -190,7 +211,7 @@ export class ContextMapper implements DurableObject {
     return parts.join(" | ");
   }
 
-  private scorePrediction(predictionId: string, outcome: PredictionRecord["outcome"]): Response {
+  private async scorePrediction(predictionId: string, outcome: PredictionRecord["outcome"]): Promise<Response> {
     const prediction = this.predictions.find((p) => p.id === predictionId);
     if (!prediction) {
       return Response.json({ error: "Prediction not found" }, { status: 404 });
@@ -210,6 +231,7 @@ export class ContextMapper implements DurableObject {
       this.mappingAccuracy.set(file, current);
     }
 
+    await this.persist();
     return Response.json({ scored: true, prediction_id: predictionId, outcome });
   }
 }
