@@ -2,6 +2,9 @@ name = "princess-polka-dottie"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
+[observability]
+enabled = true
+
 # Durable Objects — the two overwatchers
 [durable_objects]
 bindings = [
@@ -15,9 +18,11 @@ tag = "v1"
 new_sqlite_classes = ["PatternSensor", "ContextMapper"]
 
 # KV namespace for shared pattern history
+# To enable: create the namespace, then uncomment + paste the id.
+#   wrangler kv namespace create PATTERN_HISTORY
 # [[kv_namespaces]]
 # binding = "PATTERN_HISTORY"
 # id = "TODO_CREATE_NAMESPACE"
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
