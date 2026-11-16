@@ -62,8 +62,10 @@ export class PatternSensor implements DurableObject {
   private sessionPatterns: Map<string, number> = new Map();
   private initialized = false;
 
-  // The runtime also passes `env`; this overwatcher reads no bindings, so it is not declared.
-  constructor(state: DurableObjectState) {
+  // The runtime passes `env`; this overwatcher reads no bindings. The parameter stays so the constructor keeps its
+  // original arity (2).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- unused by design, see above
+  constructor(state: DurableObjectState, env: unknown) {
     this.state = state;
   }
 

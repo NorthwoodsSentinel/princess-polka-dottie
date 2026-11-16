@@ -56,8 +56,8 @@ export function fakeNamespace(make: () => Overwatcher): DurableObjectNamespace &
 
 export function fakeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    PATTERN_SENSOR: fakeNamespace(() => new PatternSensor(fakeState())),
-    CONTEXT_MAPPER: fakeNamespace(() => new ContextMapper(fakeState())),
+    PATTERN_SENSOR: fakeNamespace(() => new PatternSensor(fakeState(), {})),
+    CONTEXT_MAPPER: fakeNamespace(() => new ContextMapper(fakeState(), {})),
     ENVIRONMENT: "test",
     AUTH_TOKEN: "test-token-synthetic",
     ...overrides,

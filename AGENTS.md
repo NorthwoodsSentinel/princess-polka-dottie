@@ -1,8 +1,8 @@
 # AGENTS.md — princess-polka-dottie
 
-Rules for any agent (or person) changing this repo. The shape and most of the wording come from Cliff Hall's
+Rules for any agent (or person) changing this repo. The shape and most of the wording come from the
 `modelcontextprotocol/inspector` AGENTS.md (branch v2/main, commit d330df9617e44ec893bc1a53618662239342d433), as the
-maintainer ruled on it. Where his way and ours differ, **the source's way stands until there is a reason to
+maintainer ruled on it. Where the source's way and ours differ, **the source's way stands until there is a reason to
 depart**; every departure below says why.
 
 `CLAUDE.md` contains only `@./AGENTS.md`. Keep one copy of these rules: two copies are strictly worse than one,
@@ -39,7 +39,7 @@ worker denies everything when `AUTH_TOKEN` is unset.
 ## Development setup
 
 - `npm ci`. This repo already used npm (`package-lock.json`), which is also the source's runner; keep it.
-- Tests run on Vitest with `@vitest/coverage-v8`, Cliff's choice.
+- Tests run on Vitest with `@vitest/coverage-v8`, the source's choice.
 - No Cloudflare account, secret or network is needed for any gate step.
 
 ## Issue-driven work style
@@ -56,7 +56,7 @@ worker denies everything when `AUTH_TOKEN` is unset.
   (`git commit -s`), open a PR with **the issue reference as the body's first line**, and set the issue In Review.
 - **After opening a PR, run a Codex review loop** (`codex exec --sandbox read-only`), unprompted. Stop on the
   **first** clean round. **Weigh each finding against the issue the PR closes and decline scope expansion.** Two
-  failed rounds in a row: stop, leave the PR open, list the findings in it. (Departure: Cliff uses Copilot; the
+  failed rounds in a row: stop, leave the PR open, list the findings in it. (Departure: the source uses Copilot; the
   maintainer chose Codex as the off-lineage reviewer.)
 - **If new tasks are discovered during development, file issues** rather than widening the PR.
 - **Pace bulk GitHub writes: 1 s between requests, never in parallel**, under 80 a minute and 500 an hour.

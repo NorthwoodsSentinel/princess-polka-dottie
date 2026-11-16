@@ -30,12 +30,12 @@ async function getJson<T>(mapper: ContextMapper, path: string): Promise<T> {
 
 describe("ContextMapper routing", () => {
   it("answers health with counts", async () => {
-    const mapper = new ContextMapper(fakeState());
+    const mapper = new ContextMapper(fakeState(), {});
     expect(await getJson(mapper, "/health")).toEqual({ status: "alive", predictions_made: 0, mappings_tracked: 0 });
   });
 
   it("returns 404 for unknown paths and wrong methods", async () => {
-    const mapper = new ContextMapper(fakeState());
+    const mapper = new ContextMapper(fakeState(), {});
     expect((await mapper.fetch(new Request("http://internal/nope"))).status).toBe(404);
     expect((await mapper.fetch(new Request("http://internal/recommend"))).status).toBe(404);
     expect((await mapper.fetch(new Request("http://internal/score"))).status).toBe(404);
@@ -46,7 +46,7 @@ describe("ContextMapper routing", () => {
 
 describe("ContextMapper recommendations", () => {
   it("maps somatic terms and trajectory to deduplicated files and anchors an approaching insight", async () => {
-    const mapper = new ContextMapper(fakeState());
+    const mapper = new ContextMapper(fakeState(), {});
     const r = await recommend(mapper, {
       somatic_language_detected: ["flutter", "falling", "unmapped-term"],
       trajectory_signal: "approaching_insight",
@@ -74,7 +74,7 @@ describe("ContextMapper recommendations", () => {
   });
 
   it("stands by while dysregulating, even with files", async () => {
-    const r = await recommend(new ContextMapper(fakeState()), {
+    const r = await recommend(new ContextMapper(fakeState(), {}), {
       trajectory_signal: "dysregulating",
       regulation_state: "sympathetic",
     });
@@ -84,7 +84,7 @@ describe("ContextMapper recommendations", () => {
   });
 
   it("stands by for an approaching insight that is not ventral", async () => {
-    const r = await recommend(new ContextMapper(fakeState()), {
+    const r = await recommend(new ContextMapper(fakeState(), {}), {
       trajectory_signal: "approaching_insight",
       regulation_state: "sympathetic",
     });
@@ -93,7 +93,7 @@ describe("ContextMapper recommendations", () => {
   });
 
   it("offers adjacent context in deep focus, but injects nothing without files", async () => {
-    const r = await recommend(new ContextMapper(fakeState()), {
+    const r = await recommend(new ContextMapper(fakeState(), {}), {
       trajectory_signal: "deep_focus",
       regulation_state: "ventral",
     });
@@ -104,7 +104,7 @@ describe("ContextMapper recommendations", () => {
   });
 
   it("delivers directly when accelerating and ventral, but stands by when accelerating otherwise", async () => {
-    const mapper = new ContextMapper(fakeState());
+    const mapper = new ContextMapper(fakeState(), {});
     const direct = await recommend(mapper, { trajectory_signal: "accelerating", regulation_state: "ventral" });
     expect(direct.delivery_mode).toBe("direct");
     expect(direct.should_inject).toBe(true);
@@ -113,7 +113,7 @@ describe("ContextMapper recommendations", () => {
   });
 
   it("does not inject at confidence 0.5 or below", async () => {
-    const r = await recommend(new ContextMapper(fakeState()), {
+    const r = await recommend(new ContextMapper(fakeState(), {}), {
       trajectory_signal: "accelerating",
       regulation_state: "ventral",
       confidence: 0.5,
@@ -124,7 +124,7 @@ describe("ContextMapper recommendations", () => {
 
   it("records each recommendation as an unscored prediction and keeps the newest 100", async () => {
     const storage = fakeStorage();
-    const mapper = new ContextMapper(fakeState(storage));
+    const mapper = new ContextMapper(fakeState(storage), {});
     const firstClock = clock + 1;
     for (let i = 0; i < 102; i++) await recommend(mapper, {});
     const predictions = storage.data.get("predictions") as PredictionRecord[];
@@ -142,14 +142,14 @@ describe("ContextMapper scoring and accuracy", () => {
   }
 
   it("returns 404 for an unknown prediction", async () => {
-    const res = await score(new ContextMapper(fakeState()), "pred_missing", "used");
+    const res = await score(new ContextMapper(fakeState(), {}), "pred_missing", "used");
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Prediction not found" });
   });
 
   it("counts used as hits, ignored and redirected as misses, and not_scored as neither", async () => {
     const storage = fakeStorage();
-    const mapper = new ContextMapper(fakeState(storage));
+    const mapper = new ContextMapper(fakeState(storage), {});
     const ids: string[] = [];
     for (let i = 0; i < 4; i++) {
       await recommend(mapper, { trajectory_signal: "accelerating", regulation_state: "ventral" });
@@ -177,17 +177,17 @@ describe("ContextMapper scoring and accuracy", () => {
 
   it("reports a zero rate for a mapping with no hits or misses", async () => {
     const storage = fakeStorage({ mappingAccuracy: [["patterns.md", { hits: 0, misses: 0 }]] });
-    const mapper = new ContextMapper(fakeState(storage));
+    const mapper = new ContextMapper(fakeState(storage), {});
     expect(await getJson(mapper, "/accuracy")).toEqual({ "patterns.md": { hits: 0, misses: 0, rate: 0 } });
   });
 
   it("persists scoring and a new instance reloads predictions and accuracy", async () => {
     const storage = fakeStorage();
-    const first = new ContextMapper(fakeState(storage));
+    const first = new ContextMapper(fakeState(storage), {});
     await recommend(first, { somatic_language_detected: ["chest"] });
     await score(first, `pred_${clock}`, "used");
 
-    const second = new ContextMapper(fakeState(storage));
+    const second = new ContextMapper(fakeState(storage), {});
     expect(await getJson(second, "/health")).toEqual({ status: "alive", predictions_made: 1, mappings_tracked: 2 });
     expect(await getJson(second, "/accuracy")).toEqual({
       "patterns.md": { hits: 1, misses: 0, rate: 1 },

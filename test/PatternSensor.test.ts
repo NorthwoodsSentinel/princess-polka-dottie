@@ -19,12 +19,12 @@ async function getJson<T>(sensor: PatternSensor, path: string): Promise<T> {
 
 describe("PatternSensor routing", () => {
   it("answers health with counts", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     expect(await getJson(sensor, "/health")).toEqual({ status: "alive", exchanges_seen: 0, patterns_tracked: 0 });
   });
 
   it("returns 404 for unknown paths and wrong methods", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     expect((await sensor.fetch(new Request("http://internal/nope"))).status).toBe(404);
     expect((await sensor.fetch(new Request("http://internal/exchange"))).status).toBe(404);
     expect((await sensor.fetch(post("http://internal/assessment", {}))).status).toBe(404);
@@ -32,7 +32,7 @@ describe("PatternSensor routing", () => {
   });
 
   it("assesses an empty sensor as unknown and stable with zero confidence", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await getJson<PatternAssessment>(sensor, "/assessment");
     expect(a).toMatchObject({
       circling_detected: false,
@@ -50,7 +50,7 @@ describe("PatternSensor routing", () => {
 describe("PatternSensor persistence", () => {
   it("persists exchanges and patterns, and a new instance reloads them", async () => {
     const storage = fakeStorage();
-    const first = new PatternSensor(fakeState(storage));
+    const first = new PatternSensor(fakeState(storage), {});
     await send(first, exchange({ conversation_window: ["one two three four"] }));
     expect(storage.data.get("recentExchanges")).toHaveLength(1);
     expect(storage.data.get("sessionPatterns")).toEqual([
@@ -58,7 +58,7 @@ describe("PatternSensor persistence", () => {
       ["two three four", 1],
     ]);
 
-    const second = new PatternSensor(fakeState(storage));
+    const second = new PatternSensor(fakeState(storage), {});
     expect(await getJson(second, "/health")).toEqual({ status: "alive", exchanges_seen: 1, patterns_tracked: 2 });
   });
 
@@ -70,14 +70,14 @@ describe("PatternSensor persistence", () => {
       reads++;
       return get<T>(key);
     };
-    const sensor = new PatternSensor(fakeState(storage));
+    const sensor = new PatternSensor(fakeState(storage), {});
     await getJson(sensor, "/health");
     await getJson(sensor, "/health");
     expect(reads).toBe(2); // two keys, read once
   });
 
   it("keeps a sliding window of 20 exchanges", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     for (let i = 0; i < 22; i++) await send(sensor, exchange({ conversation_window: [`m${i}`] }));
     expect(await getJson(sensor, "/health")).toMatchObject({ exchanges_seen: 20 });
   });
@@ -91,7 +91,7 @@ describe("PatternSensor concept tracking", () => {
         ["spent phrase here", 0],
       ],
     });
-    const sensor = new PatternSensor(fakeState(storage));
+    const sensor = new PatternSensor(fakeState(storage), {});
     await send(sensor, exchange({ conversation_window: ["short"] }));
     const patterns = new Map(storage.data.get("sessionPatterns") as [string, number][]);
     expect(patterns.get("old phrase here")).toBeCloseTo(1.9);
@@ -99,7 +99,7 @@ describe("PatternSensor concept tracking", () => {
   });
 
   it("detects circling once a trigram reaches 3 and reports the strongest one", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(
       sensor,
       exchange({ conversation_window: ["the red door the red door the red door", "the red door again"] }),
@@ -113,7 +113,7 @@ describe("PatternSensor concept tracking", () => {
     const seed: [string, number][] = [];
     for (let i = 0; i < 500; i++) seed.push([`seed ${i} x`, 10 + i]);
     const storage = fakeStorage({ sessionPatterns: seed });
-    const sensor = new PatternSensor(fakeState(storage));
+    const sensor = new PatternSensor(fakeState(storage), {});
     await send(sensor, exchange({ conversation_window: ["alpha beta gamma delta"] }));
     const patterns = storage.data.get("sessionPatterns") as [string, number][];
     expect(patterns).toHaveLength(500);
@@ -126,7 +126,7 @@ describe("PatternSensor concept tracking", () => {
 
 describe("PatternSensor language detection", () => {
   it("reports somatic vocabulary found in the last five messages", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(sensor, exchange({ conversation_window: ["My Chest has a Flutter", "feels like falling"] }));
     expect(a.somatic_language_detected).toEqual(["flutter", "falling", "chest", "feels like"]);
   });
@@ -134,7 +134,7 @@ describe("PatternSensor language detection", () => {
 
 describe("PatternSensor regulation state", () => {
   const stateFor = async (ex: Partial<ConversationExchange>) =>
-    (await send(new PatternSensor(fakeState()), exchange(ex))).regulation_state;
+    (await send(new PatternSensor(fakeState(), {}), exchange(ex))).regulation_state;
 
   it("is unknown with neither body nor brain signal", async () => {
     expect(await stateFor({})).toBe("unknown");
@@ -183,7 +183,7 @@ describe("PatternSensor regulation state", () => {
   });
 
   it("falls back to the latest stored body signal when assessed without one", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     await send(sensor, exchange({ body_signal: stressedBody }));
     expect((await getJson<PatternAssessment>(sensor, "/assessment")).regulation_state).toBe("sympathetic");
   });
@@ -191,7 +191,7 @@ describe("PatternSensor regulation state", () => {
 
 describe("PatternSensor trajectory", () => {
   it("is approaching_insight when circling, ventral and somatic together", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(
       sensor,
       exchange({ conversation_window: ["my gut my gut my gut my gut"], body_signal: calmBody }),
@@ -200,19 +200,19 @@ describe("PatternSensor trajectory", () => {
   });
 
   it("is dysregulating when accelerating and sympathetic", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(sensor, exchange({ conversation_window: ["let's build it"], body_signal: stressedBody }));
     expect(a.trajectory_signal).toBe("dysregulating");
   });
 
   it("is accelerating when accelerating and ventral", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(sensor, exchange({ conversation_window: ["what if we try"], body_signal: calmBody }));
     expect(a.trajectory_signal).toBe("accelerating");
   });
 
   it("is deep_focus when ventral and calm for more than five exchanges", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     let a: PatternAssessment | undefined;
     for (let i = 0; i < 6; i++)
       a = await send(sensor, exchange({ conversation_window: [`n${i}`], body_signal: calmBody }));
@@ -221,15 +221,15 @@ describe("PatternSensor trajectory", () => {
   });
 
   it("stays stable when ventral for five exchanges or fewer, and when accelerating with unknown state", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     const a = await send(sensor, exchange({ conversation_window: ["quiet"], body_signal: calmBody }));
     expect(a.trajectory_signal).toBe("stable");
-    const b = await send(new PatternSensor(fakeState()), exchange({ conversation_window: ["can we go"] }));
+    const b = await send(new PatternSensor(fakeState(), {}), exchange({ conversation_window: ["can we go"] }));
     expect(b.trajectory_signal).toBe("stable");
   });
 
   it("caps confidence at 1", async () => {
-    const sensor = new PatternSensor(fakeState());
+    const sensor = new PatternSensor(fakeState(), {});
     let a: PatternAssessment | undefined;
     for (let i = 0; i < 12; i++) a = await send(sensor, exchange({ conversation_window: [`c${i}`] }));
     expect(a?.confidence).toBe(1);
