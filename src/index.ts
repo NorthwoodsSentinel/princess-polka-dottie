@@ -15,18 +15,18 @@ export { PatternSensor } from "./PatternSensor";
 export { ContextMapper } from "./ContextMapper";
 
 const SECURITY_HEADERS: Record<string, string> = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
 function secureJson(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS },
+    headers: { "Content-Type": "application/json", ...SECURITY_HEADERS },
   });
 }
 
@@ -73,7 +73,7 @@ export default {
 
     // Combined endpoint — full pipeline
     if (path === "/sense" && request.method === "POST") {
-      let exchange: any;
+      let exchange: unknown;
       try {
         exchange = await request.json();
       } catch {
@@ -81,13 +81,14 @@ export default {
       }
 
       // Input validation — require at minimum a conversation array
-      if (!exchange || typeof exchange !== 'object') {
+      if (!exchange || typeof exchange !== "object") {
         return secureJson({ error: "Request body must be a JSON object" }, 400);
       }
-      if (exchange.conversation && !Array.isArray(exchange.conversation)) {
+      const conversation = (exchange as { conversation?: unknown }).conversation;
+      if (conversation && !Array.isArray(conversation)) {
         return secureJson({ error: "conversation must be an array" }, 400);
       }
-      if (exchange.conversation && exchange.conversation.length > 200) {
+      if (Array.isArray(conversation) && conversation.length > 200) {
         return secureJson({ error: "conversation exceeds maximum length of 200 exchanges" }, 400);
       }
 

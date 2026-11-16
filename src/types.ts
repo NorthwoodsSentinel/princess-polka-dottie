@@ -8,14 +8,14 @@ export interface BodySignal {
 
 /** Brain signal snapshot from muse-stream (Muse headband) */
 export interface BrainSignal {
-  alpha: number | null;   // 8-13 Hz — relaxation
-  beta: number | null;    // 13-30 Hz — focus/engagement
-  theta: number | null;   // 4-8 Hz — drowsiness/meditation
-  delta: number | null;   // 1-4 Hz — deep sleep
-  gamma: number | null;   // 30-50 Hz — peak cognition
-  calm: number | null;    // Muse-computed calm score
-  focus: number | null;   // Muse-computed focus score
-  hsi: number[];          // Sensor quality [TP9, AF7, AF8, TP10]
+  alpha: number | null; // 8-13 Hz — relaxation
+  beta: number | null; // 13-30 Hz — focus/engagement
+  theta: number | null; // 4-8 Hz — drowsiness/meditation
+  delta: number | null; // 1-4 Hz — deep sleep
+  gamma: number | null; // 30-50 Hz — peak cognition
+  calm: number | null; // Muse-computed calm score
+  focus: number | null; // Muse-computed focus score
+  hsi: number[]; // Sensor quality [TP9, AF7, AF8, TP10]
 }
 
 /** Conversation exchange from the tap hook */
@@ -57,7 +57,7 @@ export interface InjectionRecommendation {
 export interface PredictionRecord {
   id: string;
   recommendation: InjectionRecommendation;
-  outcome: "used" | "ignored" | "redirected" | "not_scored" ;
+  outcome: "used" | "ignored" | "redirected" | "not_scored";
   scored_at: number | null;
   ts: number;
 }
