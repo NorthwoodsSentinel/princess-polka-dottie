@@ -14,39 +14,34 @@
  * files are relevant to which patterns.
  */
 
-import type { PatternAssessment, InjectionRecommendation, PredictionRecord, Env } from "./types";
+import type { PatternAssessment, InjectionRecommendation, PredictionRecord } from "./types";
 
 /** Known memory file mappings — seed data, will grow with learning */
 const CONTEXT_MAPPINGS: Record<string, string[]> = {
   // Somatic language triggers
-  "flutter": ["patterns.md"],
-  "falling": ["patterns.md", "insight-somatic-catch-event.md"],
-  "membrane": ["insight-somatic-catch-event.md"],
-  "expansion": ["patterns.md", "insight-universal-channel.md"],
-  "chest": ["patterns.md", "insight-universal-channel.md"],
-  "drop": ["patterns.md"], // The Drop pattern
-  "circling": ["insight-universal-channel.md"],
+  flutter: ["patterns.md"],
+  falling: ["patterns.md", "insight-somatic-catch-event.md"],
+  membrane: ["insight-somatic-catch-event.md"],
+  expansion: ["patterns.md", "insight-universal-channel.md"],
+  chest: ["patterns.md", "insight-universal-channel.md"],
+  drop: ["patterns.md"], // The Drop pattern
+  circling: ["insight-universal-channel.md"],
 
   // Trajectory triggers
-  "approaching_insight": ["patterns.md", "insight-20260312-pride-pattern.md"],
-  "dysregulating": ["insight-somatic-catch-event.md", "feedback_landing_procedure.md"],
-  "accelerating": ["insight-somatic-catch-event.md"],
+  approaching_insight: ["patterns.md", "insight-20260312-pride-pattern.md"],
+  dysregulating: ["insight-somatic-catch-event.md", "feedback_landing_procedure.md"],
+  accelerating: ["insight-somatic-catch-event.md"],
 };
 
 /** Delivery mode based on regulation state + trajectory */
-function determineDeliveryMode(
-  assessment: PatternAssessment,
-): InjectionRecommendation["delivery_mode"] {
+function determineDeliveryMode(assessment: PatternAssessment): InjectionRecommendation["delivery_mode"] {
   // Dysregulating → stop everything
   if (assessment.trajectory_signal === "dysregulating") {
     return "stand_by";
   }
 
   // Approaching insight while regulated → gentle anchors only
-  if (
-    assessment.trajectory_signal === "approaching_insight" &&
-    assessment.regulation_state === "ventral"
-  ) {
+  if (assessment.trajectory_signal === "approaching_insight" && assessment.regulation_state === "ventral") {
     return "anchor";
   }
 
@@ -56,10 +51,7 @@ function determineDeliveryMode(
   }
 
   // Accelerating but regulated → direct is fine
-  if (
-    assessment.trajectory_signal === "accelerating" &&
-    assessment.regulation_state === "ventral"
-  ) {
+  if (assessment.trajectory_signal === "accelerating" && assessment.regulation_state === "ventral") {
     return "direct";
   }
 
@@ -75,7 +67,10 @@ export class ContextMapper implements DurableObject {
   private mappingAccuracy: Map<string, { hits: number; misses: number }> = new Map();
   private initialized = false;
 
-  constructor(state: DurableObjectState, env: any) {
+  // The runtime passes `env`; this overwatcher reads no bindings. The parameter stays so the constructor keeps its
+  // original arity (2).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- unused by design, see above
+  constructor(state: DurableObjectState, env: unknown) {
     this.state = state;
   }
 
@@ -84,7 +79,8 @@ export class ContextMapper implements DurableObject {
     if (this.initialized) return;
     const storedPredictions = await this.state.storage.get<PredictionRecord[]>("predictions");
     if (storedPredictions) this.predictions = storedPredictions;
-    const storedAccuracy = await this.state.storage.get<[string, { hits: number; misses: number }][]>("mappingAccuracy");
+    const storedAccuracy =
+      await this.state.storage.get<[string, { hits: number; misses: number }][]>("mappingAccuracy");
     if (storedAccuracy) this.mappingAccuracy = new Map(storedAccuracy);
     this.initialized = true;
   }
@@ -105,8 +101,7 @@ export class ContextMapper implements DurableObject {
     }
 
     if (request.method === "POST" && url.pathname === "/score") {
-      const scoring: { prediction_id: string; outcome: PredictionRecord["outcome"] } =
-        await request.json();
+      const scoring: { prediction_id: string; outcome: PredictionRecord["outcome"] } = await request.json();
       return await this.scorePrediction(scoring.prediction_id, scoring.outcome);
     }
 

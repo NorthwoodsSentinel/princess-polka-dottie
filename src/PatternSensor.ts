@@ -16,16 +16,41 @@
 import type { ConversationExchange, PatternAssessment, BodySignal, BrainSignal } from "./types";
 
 const SOMATIC_VOCABULARY = [
-  "flutter", "falling", "swimming", "membrane", "expansion", "tingling",
-  "chest", "belly", "gut", "pressure", "halo", "cool", "warm",
-  "something's off", "feels like", "feels right", "can feel",
-  "circling", "coming back to", "keep thinking about",
-  "spinning", "grounded", "settled", "buzzing",
+  "flutter",
+  "falling",
+  "swimming",
+  "membrane",
+  "expansion",
+  "tingling",
+  "chest",
+  "belly",
+  "gut",
+  "pressure",
+  "halo",
+  "cool",
+  "warm",
+  "something's off",
+  "feels like",
+  "feels right",
+  "can feel",
+  "circling",
+  "coming back to",
+  "keep thinking about",
+  "spinning",
+  "grounded",
+  "settled",
+  "buzzing",
 ];
 
 const ACCELERATION_MARKERS = [
-  "let's build", "I want to", "can we", "right now",
-  "what if we", "shoot", "oh shit", "holy shit",
+  "let's build",
+  "I want to",
+  "can we",
+  "right now",
+  "what if we",
+  "shoot",
+  "oh shit",
+  "holy shit",
 ];
 
 const MAX_RECENT_EXCHANGES = 20;
@@ -37,7 +62,10 @@ export class PatternSensor implements DurableObject {
   private sessionPatterns: Map<string, number> = new Map();
   private initialized = false;
 
-  constructor(state: DurableObjectState, env: any) {
+  // The runtime passes `env`; this overwatcher reads no bindings. The parameter stays so the constructor keeps its
+  // original arity (2).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- unused by design, see above
+  constructor(state: DurableObjectState, env: unknown) {
     this.state = state;
   }
 
@@ -157,13 +185,13 @@ export class PatternSensor implements DurableObject {
     // Brain signals — alpha dominance = relaxed, beta dominance = activated
     if (brain) {
       if (brain.alpha !== null && brain.beta !== null && brain.alpha > brain.beta) {
-        ventralSignals++;  // Alpha dominant = relaxed
+        ventralSignals++; // Alpha dominant = relaxed
       }
       if (brain.beta !== null && brain.alpha !== null && brain.beta > brain.alpha * 2) {
-        sympatheticSignals++;  // Beta strongly dominant = activated/anxious
+        sympatheticSignals++; // Beta strongly dominant = activated/anxious
       }
       if (brain.theta !== null && brain.alpha !== null && brain.theta > brain.alpha) {
-        ventralSignals++;  // Theta dominant = deep meditation/flow
+        ventralSignals++; // Theta dominant = deep meditation/flow
       }
       if (brain.gamma !== null && brain.gamma > 0) {
         // Gamma present = peak cognition, not necessarily sympathetic
